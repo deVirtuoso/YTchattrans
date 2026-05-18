@@ -1,0 +1,43 @@
+[data-hiding-origin] {
+  display: none !important;
+}
+
+[data-translation-divider] {
+  border: 0;
+  height: 1px;
+  margin: 0.35em 0;
+  background: linear-gradient(90deg, transparent, #90909055, transparent);
+}
+
+.ytctl-translation {
+  display: block;
+  margin-top: 0.15em;
+  font-size: 0.92em;
+  line-height: 1.35;
+  opacity: 0.92;
+}
+
+.ytctl-float-btn {
+  position: fixed;
+  right: 16px;
+  bottom: 88px;
+  z-index: 2147483646;
+  padding: 8px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  color: #202124;
+  cursor: pointer;
+  font: 600 12px/1 system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+.ytctl-float-btn:hover {
+  background: #f8f9fa;
+}
+
+.ytctl-float-btn[aria-pressed="true"] {
+  background: #e8f0fe;
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
