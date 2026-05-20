@@ -146,8 +146,9 @@ const dailyAllowanceEl = document.getElementById("dailyAllowance")
 const monthlyAllowanceEl = document.getElementById("monthlyAllowance")
 
 function formatUsage(used, limit, left) {
-  if (left <= 0) return `${limit} of ${limit} used`
-  return `${used} of ${limit} used`
+  const label = limit === 1 ? "video" : "videos"
+  if (left <= 0) return `${limit} of ${limit} ${label} used`
+  return `${used} of ${limit} ${label} used`
 }
 
 async function refreshAllowance() {
@@ -420,7 +421,7 @@ loginForm.addEventListener("submit", async (e) => {
 })
 
 document.getElementById("btnSignOut").addEventListener("click", async () => {
-  await chrome.storage.local.remove(["authToken", "isPro", "usageDaily", "usageMonthly", "userEmail"])
+  await chrome.storage.local.remove(["authToken", "isPro", "usageDaily", "usageMonthly", "userEmail", "lastTranslatedVideoId"])
   document.getElementById("btnShowAuth").style.display = "block"
   document.getElementById("btnSignOut").style.display = "none"
   

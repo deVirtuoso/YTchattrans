@@ -316,19 +316,24 @@ async function translateWithProvider(service, texts, from, to) {
   }
 }
 
-async function translateBatch({ service, from, to, texts }) {
+async function translateBatch({ service, from, to, texts, videoId = "default" }) {
   const list = Array.isArray(texts) ? texts : [texts]
   if (list.length === 0) return { texts: [] }
 
-  let stored = await chrome.storage.local.get(["isPro", "usageDaily", "usageMonthly"])
+  let stored = await chrome.storage.local.get(["isPro", "usageDaily", "usageMonthly", "lastTranslatedVideoId"])
+  const sameVideo = (stored.lastTranslatedVideoId === videoId)
+
+  // Rotate limits if day/month changed
   const periodPatch = usagePeriodPatch(stored)
   if (periodPatch) {
     await chrome.storage.local.set(periodPatch)
     stored = { ...stored, ...periodPatch }
   }
-  const allowance = allowanceForBatch(stored, list.length)
 
-  if (!allowance.isPro && allowance.allowed === 0) {
+  // If same video/page session, bypass allowance check.
+  // Otherwise, must have at least 1 unit allowance (or be Pro).
+  const allowance = allowanceForBatch(stored, 1)
+  if (!sameVideo && !allowance.isPro && allowance.allowed === 0) {
     return {
       texts: [],
       limitExceeded: true,
@@ -336,7 +341,8 @@ async function translateBatch({ service, from, to, texts }) {
     }
   }
 
-  const toTranslate = allowance.isPro ? list : list.slice(0, allowance.allowed)
+  // Under the session model, we translate the entire requested list
+  const toTranslate = list
 
   const providers = [
     service,
@@ -350,20 +356,25 @@ async function translateBatch({ service, from, to, texts }) {
   for (const name of providers) {
     try {
       const textsOut = await translateWithProvider(name, toTranslate, from, to)
-      if (!allowance.isPro && textsOut.length > 0) {
-        const { usageDaily, usageMonthly } = normalizeUsage(stored)
-        const next = usageAfterConsume(usageDaily, usageMonthly, textsOut.length)
-        await chrome.storage.local.set(next)
+      
+      // If we successfully translated some text and it's a new video session, we consume 1 unit
+      if (textsOut.length > 0 && !sameVideo) {
+        if (!allowance.isPro) {
+          const { usageDaily, usageMonthly } = normalizeUsage(stored)
+          const next = usageAfterConsume(usageDaily, usageMonthly, 1) // Consume exactly 1 unit
+          await chrome.storage.local.set(next)
+          await consumeBackendUsage(1) // Sync exactly 1 unit to the backend
+        }
+        // Save the active video ID so subsequent translations on this page/video session are free
+        await chrome.storage.local.set({ lastTranslatedVideoId: videoId })
       }
-      if (textsOut.length > 0) {
-        await consumeBackendUsage(textsOut.length)
-      }
+
       const usage = buildAllowanceView(
         await chrome.storage.local.get(["isPro", "usageDaily", "usageMonthly"])
       )
       return {
         texts: textsOut,
-        limitExceeded: !allowance.isPro && allowance.allowed < list.length,
+        limitExceeded: false,
         usage
       }
     } catch (error) {
