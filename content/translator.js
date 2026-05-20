@@ -184,6 +184,12 @@ async function translateBatch(items) {
   const controller = new AbortController()
   activeController = controller
 
+  let videoId = null
+  try {
+    const url = new URL(window.location.href)
+    videoId = url.searchParams.get("v")
+  } catch (e) {}
+
   const action = `translate:${Date.now()}`
   const response = await chrome.runtime.sendMessage({
     action,
@@ -191,7 +197,8 @@ async function translateBatch(items) {
       texts: items.map((item) => item.text),
       from: "auto",
       to: settings.yourLanguage,
-      service: settings.engine
+      service: settings.engine,
+      videoId: videoId || "default"
     }
   })
 

@@ -21,6 +21,86 @@ const globalLimiter = rateLimit({
 app.use(globalLimiter);
 
 app.use(cors());
+
+// Stripe Webhook Endpoint (staged above general body-parsers to keep raw request body intact for signatures)
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    const signature = req.headers['stripe-signature'];
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event;
+
+    try {
+        if (secret && signature) {
+            const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || '');
+            event = stripe.webhooks.constructEvent(req.body, signature, secret);
+        } else {
+            // Dev Fallback: Parse body directly if no secret is defined to make offline testing easy
+            event = JSON.parse(req.body.toString());
+            console.warn('[Stripe Webhook] Verification skipped. STRIPE_WEBHOOK_SECRET not set.');
+        }
+    } catch (err) {
+        console.error(`[Stripe Webhook] Error verifying signature: ${err.message}`);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    const session = event.data.object;
+
+    try {
+        switch (event.type) {
+            case 'checkout.session.completed':
+            case 'invoice.payment_succeeded': {
+                const email = session.customer_details?.email || session.customer_email || session.email;
+                if (email) {
+                    const user = await User.findOne({ email: email.toLowerCase() });
+                    if (user) {
+                        user.tier = 'pro';
+                        await user.save();
+                        console.log(`[Stripe Webhook] User ${email} upgraded to PRO.`);
+                    } else {
+                        console.warn(`[Stripe Webhook] Checkout succeeded for ${email} but user not found in DB.`);
+                    }
+                }
+                break;
+            }
+
+            case 'customer.subscription.deleted':
+            case 'invoice.payment_failed': {
+                let email = session.customer_email || session.email;
+                
+                // If customer is just an ID (e.g. subscription deleted events), query Stripe to get the email
+                if (!email && session.customer && process.env.STRIPE_SECRET_KEY) {
+                    try {
+                        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+                        const customer = await stripe.customers.retrieve(session.customer);
+                        email = customer.email;
+                    } catch (e) {
+                        console.error('[Stripe Webhook] Failed to retrieve customer email:', e.message);
+                    }
+                }
+
+                if (email) {
+                    const user = await User.findOne({ email: email.toLowerCase() });
+                    if (user) {
+                        user.tier = 'free';
+                        await user.save();
+                        console.log(`[Stripe Webhook] User ${email} downgraded to FREE.`);
+                    } else {
+                        console.warn(`[Stripe Webhook] Downgrade event for ${email} but user not found in DB.`);
+                    }
+                }
+                break;
+            }
+            default:
+                console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`);
+        }
+    } catch (err) {
+        console.error('[Stripe Webhook] Error processing event:', err);
+        return res.status(500).json({ error: 'Failed to process event' });
+    }
+
+    res.json({ received: true });
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
