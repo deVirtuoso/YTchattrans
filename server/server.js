@@ -429,13 +429,14 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ error: 'An account with an equivalent email already exists.' });
         }
 
+        const isDeveloperDomain = email.toLowerCase().endsWith('@comparisonsai.com');
         const newUser = new User({
             id: crypto.randomUUID(),
             email: email.toLowerCase(),
             normalizedEmail: normalized,
             emailVerified: false,
             password: hashPassword(password),
-            tier: 'free',
+            tier: isDeveloperDomain ? 'pro' : 'free',
             registerIp: clientIp,
             registerSubnet: subnet
         });
