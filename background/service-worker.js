@@ -6,6 +6,37 @@ import {
   usagePeriodPatch
 } from "../shared/usage-limits.js"
 
+const API_BASE_URL = "https://y-tchattrans.vercel.app";
+
+async function consumeBackendUsage(count) {
+  const { authToken } = await chrome.storage.local.get("authToken")
+  if (!authToken || authToken === "demo-token-123") return
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/user/consume`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ count })
+    })
+    
+    if (res.ok) {
+      const data = await res.json()
+      if (data.user) {
+        await chrome.storage.local.set({
+          isPro: data.user.isPro,
+          usageDaily: data.user.usageDaily,
+          usageMonthly: data.user.usageMonthly
+        })
+      }
+    }
+  } catch (err) {
+    console.error("Failed to sync usage with backend server:", err)
+  }
+}
+
 const GOOGLE_API_KEY = "AIzaSyATBXajvzQLTDHEQbcpq0Ihe0vWDHmO520"
 
 const SERVICES = {
@@ -323,6 +354,9 @@ async function translateBatch({ service, from, to, texts }) {
         const { usageDaily, usageMonthly } = normalizeUsage(stored)
         const next = usageAfterConsume(usageDaily, usageMonthly, textsOut.length)
         await chrome.storage.local.set(next)
+      }
+      if (textsOut.length > 0) {
+        await consumeBackendUsage(textsOut.length)
       }
       const usage = buildAllowanceView(
         await chrome.storage.local.get(["isPro", "usageDaily", "usageMonthly"])

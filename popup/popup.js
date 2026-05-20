@@ -1,5 +1,7 @@
 import { buildAllowanceView, usagePeriodPatch } from "../shared/usage-limits.js"
 
+const API_BASE_URL = "https://y-tchattrans.vercel.app";
+
 const LANGUAGES = [
   ["auto", "Auto-detect source"],
   ["en", "English"],
@@ -58,6 +60,54 @@ function detectLanguage() {
   return code.split("-")[0]
 }
 
+async function syncProfile() {
+  const { authToken } = await chrome.storage.local.get("authToken")
+  if (!authToken) {
+    document.getElementById("btnShowAuth").style.display = "block"
+    document.getElementById("btnSignOut").style.display = "none"
+    return
+  }
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/user/me`, {
+      headers: { "Authorization": `Bearer ${authToken}` }
+    })
+    
+    if (res.status === 401) {
+      // Token is invalid/expired, sign out user
+      await chrome.storage.local.remove(["authToken", "isPro", "userEmail"])
+      document.getElementById("btnShowAuth").style.display = "block"
+      document.getElementById("btnSignOut").style.display = "none"
+      return
+    }
+
+    if (res.ok) {
+      const data = await res.json()
+      // Save synced fields to local storage
+      await chrome.storage.local.set({
+        isPro: data.isPro,
+        usageDaily: data.usageDaily,
+        usageMonthly: data.usageMonthly,
+        userEmail: data.email
+      })
+
+      // Show signed in view
+      document.getElementById("btnShowAuth").style.display = "none"
+      const btnSignOut = document.getElementById("btnSignOut")
+      btnSignOut.style.display = "flex"
+      btnSignOut.title = `Sign Out (${data.email})`
+    }
+  } catch (err) {
+    console.error("Failed to sync profile with server:", err)
+    // If offline, still show signed in state based on presence of authToken
+    const { userEmail } = await chrome.storage.local.get("userEmail")
+    document.getElementById("btnShowAuth").style.display = "none"
+    const btnSignOut = document.getElementById("btnSignOut")
+    btnSignOut.style.display = "flex"
+    if (userEmail) btnSignOut.title = `Sign Out (${userEmail})`
+  }
+}
+
 async function load() {
   const stored = await chrome.storage.local.get(Object.keys(DEFAULTS))
   const yourLanguage = stored.yourLanguage ?? detectLanguage()
@@ -71,6 +121,8 @@ async function load() {
   if (stored.yourLanguage === undefined) {
     await chrome.storage.local.set({ yourLanguage })
   }
+
+  await syncProfile()
 }
 
 function save(patch) {
@@ -169,8 +221,23 @@ function showView(viewId) {
 btnShowAuth.addEventListener("click", () => showView("authView"))
 btnBackToMain.addEventListener("click", () => showView("mainView"))
 
+const authMessage = document.getElementById("authMessage")
+
+function displayAuthMsg(type, text) {
+  authMessage.textContent = text
+  authMessage.className = `auth-message ${type}`
+  authMessage.style.display = "block"
+}
+
+function clearAuthMsg() {
+  authMessage.textContent = ""
+  authMessage.className = "auth-message"
+  authMessage.style.display = "none"
+}
+
 function switchAuthState(state) {
   currentAuthState = state
+  clearAuthMsg()
   
   // Hide all forms
   loginForm.classList.remove("active")
@@ -221,37 +288,150 @@ linkToForgot.addEventListener("click", (e) => {
 })
 
 // Auth form submissions
-document.getElementById("signupForm").addEventListener("submit", (e) => {
+signupForm.addEventListener("submit", async (e) => {
   e.preventDefault()
-  alert("This functionality will be connected later.")
-})
-
-document.getElementById("forgotForm").addEventListener("submit", (e) => {
-  e.preventDefault()
-  alert("Reset link sent (placeholder).")
-})
-
-document.getElementById("loginForm").addEventListener("submit", (e) => {
-  e.preventDefault()
-  const email = document.getElementById("loginEmail").value
-  const password = document.getElementById("loginPassword").value
+  clearAuthMsg()
   
-  if (email === "test@test.com" && password === "password") {
-    document.getElementById("btnShowAuth").style.display = "none"
-    document.getElementById("btnSignOut").style.display = "flex"
-    showView("mainView")
-  } else {
-    alert("Invalid credentials. Try test@test.com / password for the trial demo.")
+  const email = document.getElementById("signupEmail").value.trim()
+  const password = document.getElementById("signupPassword").value
+  
+  const btn = signupForm.querySelector("button[type='submit']")
+  const origText = btn.textContent
+  btn.textContent = "Signing Up..."
+  btn.disabled = true
+  
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    })
+    
+    const data = await res.json()
+    if (res.ok) {
+      displayAuthMsg("success", data.message || "Registration successful! Check your inbox to verify your email.")
+      signupForm.reset()
+    } else {
+      displayAuthMsg("error", data.error || "Failed to create account.")
+    }
+  } catch (err) {
+    displayAuthMsg("error", "Network error. Please make sure the backend server is running.")
+  } finally {
+    btn.textContent = origText
+    btn.disabled = false
   }
 })
 
-document.getElementById("btnSignOut").addEventListener("click", () => {
+forgotForm.addEventListener("submit", async (e) => {
+  e.preventDefault()
+  clearAuthMsg()
+  
+  const email = document.getElementById("forgotEmail").value.trim()
+  const btn = forgotForm.querySelector("button[type='submit']")
+  const origText = btn.textContent
+  btn.textContent = "Sending Link..."
+  btn.disabled = true
+  
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    })
+    
+    const data = await res.json()
+    if (res.ok) {
+      displayAuthMsg("success", data.message || "Reset link sent! Check your email inbox.")
+      forgotForm.reset()
+    } else {
+      displayAuthMsg("error", data.error || "Failed to send reset link.")
+    }
+  } catch (err) {
+    displayAuthMsg("error", "Network error. Please make sure the backend server is running.")
+  } finally {
+    btn.textContent = origText
+    btn.disabled = false
+  }
+})
+
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault()
+  clearAuthMsg()
+  
+  const email = document.getElementById("loginEmail").value.trim()
+  const password = document.getElementById("loginPassword").value
+  
+  // Dev demo bypass
+  if (email === "test@test.com" && password === "password") {
+    await chrome.storage.local.set({
+      authToken: "demo-token-123",
+      isPro: false,
+      userEmail: "test@test.com"
+    })
+    document.getElementById("btnShowAuth").style.display = "none"
+    const btnSignOut = document.getElementById("btnSignOut")
+    btnSignOut.style.display = "flex"
+    btnSignOut.title = "Sign Out (test@test.com)"
+    loginForm.reset()
+    showView("mainView")
+    return
+  }
+  
+  const btn = loginForm.querySelector("button[type='submit']")
+  const origText = btn.textContent
+  btn.textContent = "Logging In..."
+  btn.disabled = true
+  
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    })
+    
+    const data = await res.json()
+    if (res.ok) {
+      await chrome.storage.local.set({
+        authToken: data.token,
+        isPro: data.user.isPro,
+        usageDaily: data.user.usageDaily,
+        usageMonthly: data.user.usageMonthly,
+        userEmail: data.user.email
+      })
+      
+      document.getElementById("btnShowAuth").style.display = "none"
+      const btnSignOut = document.getElementById("btnSignOut")
+      btnSignOut.style.display = "flex"
+      btnSignOut.title = `Sign Out (${data.user.email})`
+      
+      loginForm.reset()
+      showView("mainView")
+    } else if (res.status === 403 && data.pendingVerification) {
+      displayAuthMsg("info", data.error || "Please verify your email address. A fresh link has been sent to your inbox.")
+    } else {
+      displayAuthMsg("error", data.error || "Invalid email or password.")
+    }
+  } catch (err) {
+    displayAuthMsg("error", "Network error. Please make sure the backend server is running.")
+  } finally {
+    btn.textContent = origText
+    btn.disabled = false
+  }
+})
+
+document.getElementById("btnSignOut").addEventListener("click", async () => {
+  await chrome.storage.local.remove(["authToken", "isPro", "usageDaily", "usageMonthly", "userEmail"])
   document.getElementById("btnShowAuth").style.display = "block"
   document.getElementById("btnSignOut").style.display = "none"
-
-  // Reset form
-  document.getElementById("loginEmail").value = ""
-  document.getElementById("loginPassword").value = ""
+  
+  // Clear forms
+  loginForm.reset()
+  signupForm.reset()
+  forgotForm.reset()
+  clearAuthMsg()
+  
+  // Go back to main
+  showView("mainView")
 })
 
 // Placeholder links

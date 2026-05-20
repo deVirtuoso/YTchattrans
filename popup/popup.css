@@ -480,3 +480,28 @@ input:checked + .slider:before {
 .auth-switch a:hover {
   text-decoration: underline;
 }
+
+.auth-message {
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+.auth-message.error {
+  background-color: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+}
+.auth-message.success {
+  background-color: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #15803d;
+}
+.auth-message.info {
+  background-color: #eff6ff;
+  border: 1px solid #93c5fd;
+  color: #1d4ed8;
+}

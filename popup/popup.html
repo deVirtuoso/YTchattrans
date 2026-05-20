@@ -130,8 +130,11 @@
 
       <main class="auth-forms">
         <div class="test-account-notice">
-          Test Account: <strong>test@test.com</strong> / <strong>password</strong>
+          Demo: <strong>test@test.com</strong> / <strong>password</strong>
         </div>
+
+        <!-- Auth Status Message Banner -->
+        <div id="authMessage" class="auth-message" style="display:none;"></div>
 
         <!-- Login Form -->
         <form id="loginForm" class="auth-form active">
@@ -153,11 +156,11 @@
         <form id="signupForm" class="auth-form">
           <label class="col">
             <span class="label-text">Email</span>
-            <input type="email" class="input-modern" placeholder="you@example.com" required />
+            <input type="email" id="signupEmail" class="input-modern" placeholder="you@example.com" required />
           </label>
           <label class="col">
             <span class="label-text">Password</span>
-            <input type="password" class="input-modern" placeholder="••••••••" required />
+            <input type="password" id="signupPassword" class="input-modern" placeholder="••••••••" required />
           </label>
           <button type="submit" class="btn-primary">Sign Up</button>
         </form>
@@ -167,7 +170,7 @@
           <p class="auth-desc">Enter your email to reset password.</p>
           <label class="col">
             <span class="label-text">Email</span>
-            <input type="email" class="input-modern" placeholder="you@example.com" required />
+            <input type="email" id="forgotEmail" class="input-modern" placeholder="you@example.com" required />
           </label>
           <button type="submit" class="btn-primary">Send Reset Link</button>
         </form>
