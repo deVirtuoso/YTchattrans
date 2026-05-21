@@ -320,7 +320,14 @@ async function translateBatch({ service, from, to, texts, videoId = "default" })
   const list = Array.isArray(texts) ? texts : [texts]
   if (list.length === 0) return { texts: [] }
 
-  let stored = await chrome.storage.local.get(["isPro", "usageDaily", "usageMonthly", "lastTranslatedVideoId"])
+  let stored = await chrome.storage.local.get(["isPro", "usageDaily", "usageMonthly", "lastTranslatedVideoId", "authToken"])
+  if (!stored.authToken) {
+    return {
+      texts: [],
+      error: "Authentication required. Please log in via the extension popup.",
+      limitExceeded: false
+    }
+  }
   const sameVideo = (stored.lastTranslatedVideoId === videoId)
 
   // Rotate limits if day/month changed

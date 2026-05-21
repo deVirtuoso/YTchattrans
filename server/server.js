@@ -637,10 +637,19 @@ app.post('/api/auth/google', async (req, res) => {
             return res.status(400).json({ error: 'Google OAuth token is required.' });
         }
 
-        // Verify the token with Google UserInfo API
-        const googleRes = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${token}`);
+        // Verify the token with Google UserInfo API using authorization header
+        const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
         if (!googleRes.ok) {
-            return res.status(401).json({ error: 'Failed to verify token with Google.' });
+            const errText = await googleRes.text().catch(() => '');
+            console.error(`Google token verification failed. Status: ${googleRes.status}, Response: ${errText}`);
+            return res.status(401).json({ 
+                error: `Failed to verify token with Google: Status ${googleRes.status}. Details: ${errText}` 
+            });
         }
 
         const profile = await googleRes.json();
