@@ -629,6 +629,58 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Google OAuth Route
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) {
+            return res.status(400).json({ error: 'Google OAuth token is required.' });
+        }
+
+        // Verify the token with Google UserInfo API
+        const googleRes = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${token}`);
+        if (!googleRes.ok) {
+            return res.status(401).json({ error: 'Failed to verify token with Google.' });
+        }
+
+        const profile = await googleRes.json();
+        if (!profile.email) {
+            return res.status(400).json({ error: 'Google profile did not contain an email address.' });
+        }
+
+        const email = profile.email.toLowerCase();
+
+        // Find or create the user in the database
+        let user = await User.findOne({ email });
+        if (!user) {
+            // Check if developer email to auto-promote to pro
+            const isDeveloper = email.endsWith('@comparisonsai.com') || email === 'streamsy2k@gmail.com';
+            
+            user = new User({
+                id: crypto.randomUUID(),
+                email,
+                normalizedEmail: email,
+                emailVerified: true, // Google accounts are pre-verified
+                password: hashPassword(crypto.randomBytes(32).toString('hex')), // Random dummy password
+                tier: isDeveloper ? 'pro' : 'free',
+                registerIp: req.ip || ''
+            });
+            await user.save();
+        } else if (!user.emailVerified) {
+            // If user registered with email and password but didn't verify,
+            // logging in with Google is proof of ownership.
+            user.emailVerified = true;
+            await user.save();
+        }
+
+        const jwtToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '14d' });
+        res.json({ token: jwtToken, user: serializeUserUsage(user) });
+    } catch (err) {
+        console.error('Google login error:', err);
+        res.status(500).json({ error: 'Google authentication failed.' });
+    }
+});
+
 // Forgot Password Request
 app.post('/api/auth/forgot-password', async (req, res) => {
     try {

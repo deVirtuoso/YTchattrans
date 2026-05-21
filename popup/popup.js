@@ -404,6 +404,59 @@ loginForm.addEventListener("submit", async (e) => {
   }
 })
 
+// Google Sign-In
+document.querySelector(".btn-google").addEventListener("click", () => {
+  chrome.identity.getAuthToken({ interactive: true }, async (token) => {
+    if (chrome.runtime.lastError || !token) {
+      const errMsg = chrome.runtime.lastError ? chrome.runtime.lastError.message : "Cancelled";
+      displayAuthMsg("error", `Google Sign-In failed: ${errMsg}`);
+      return;
+    }
+
+    const btnGoogle = document.querySelector(".btn-google");
+    const origHtml = btnGoogle.innerHTML;
+    btnGoogle.disabled = true;
+    btnGoogle.innerText = "Signing in with Google...";
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        await chrome.storage.local.set({
+          authToken: data.token,
+          isPro: data.user.isPro,
+          usageDaily: data.user.usageDaily,
+          usageMonthly: data.user.usageMonthly,
+          userEmail: data.user.email
+        });
+        displayAuthMsg("success", "Welcome back!");
+        
+        document.getElementById("btnShowAuth").style.display = "none";
+        const btnSignOut = document.getElementById("btnSignOut");
+        btnSignOut.style.display = "flex";
+        btnSignOut.title = `Sign Out (${data.user.email})`;
+        
+        loginForm.reset();
+        signupForm.reset();
+        showView("mainView");
+      } else {
+        displayAuthMsg("error", data.error || "Google authentication failed.");
+        chrome.identity.removeCachedAuthToken({ token }, () => {});
+      }
+    } catch (err) {
+      displayAuthMsg("error", "Network error. Please make sure the backend server is running.");
+    } finally {
+      btnGoogle.disabled = false;
+      btnGoogle.innerHTML = origHtml;
+    }
+  });
+});
+
 document.getElementById("btnSignOut").addEventListener("click", async () => {
   await chrome.storage.local.remove(["authToken", "isPro", "usageDaily", "usageMonthly", "userEmail", "lastTranslatedVideoId"])
   document.getElementById("btnShowAuth").style.display = "block"

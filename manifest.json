@@ -22,7 +22,14 @@
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
-  "permissions": ["storage"],
+  "permissions": ["storage", "identity"],
+  "oauth2": {
+    "client_id": "274735878976-k5eard43v0eu1l68ffobp8dr44g0ofr9.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
+  },
   "host_permissions": [
     "*://*.youtube.com/*",
     "https://translate.googleapis.com/*",
