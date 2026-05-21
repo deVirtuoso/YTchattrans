@@ -165,13 +165,18 @@ const userSchema = new mongoose.Schema({
     lastActionMonth: { type: String, default: '' }, // YYYY-MM
     registerIp: { type: String },
     registerSubnet: { type: String, index: true }
-}, { bufferCommands: false }); // Disable command buffering to prevent hanging on connection failure
+}, { bufferCommands: true }); // Enable command buffering to queue serverless startup operations
 
 const RealUser = mongoose.model('User', userSchema);
 
+function shouldMongo() {
+    if (process.env.MONGODB_URI) return true;
+    return isMongoConnected;
+}
+
 class User {
     constructor(data) {
-        if (isMongoConnected) {
+        if (shouldMongo()) {
             return new RealUser(data);
         } else {
             Object.assign(this, data);
@@ -186,12 +191,15 @@ class User {
     }
 
     static async findOne(query) {
-        if (isMongoConnected) {
+        if (shouldMongo()) {
             try {
                 const doc = await RealUser.findOne(query);
                 if (doc) return doc;
             } catch (err) {
-                console.warn('MongoDB query failed, falling back to file DB:', err.message);
+                console.warn('MongoDB query failed:', err.message);
+                if (process.env.MONGODB_URI) {
+                    throw err; // Strictly fail on Vercel/Production if MongoDB is configured
+                }
                 isMongoConnected = false;
             }
         }
@@ -217,11 +225,16 @@ class User {
     }
 
     async save() {
-        if (isMongoConnected && typeof this.save === 'function') {
+        if (shouldMongo()) {
             try {
-                return await this.save();
+                if (typeof this.save === 'function') {
+                    return await this.save();
+                }
             } catch (err) {
-                console.warn('MongoDB save failed, falling back to file DB:', err.message);
+                console.warn('MongoDB save failed:', err.message);
+                if (process.env.MONGODB_URI) {
+                    throw err; // Strictly fail on Vercel/Production if MongoDB is configured
+                }
                 isMongoConnected = false;
             }
         }

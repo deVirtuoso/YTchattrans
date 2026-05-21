@@ -362,22 +362,6 @@ loginForm.addEventListener("submit", async (e) => {
   const email = document.getElementById("loginEmail").value.trim()
   const password = document.getElementById("loginPassword").value
   
-  // Dev demo bypass
-  if (email === "test@test.com" && password === "password") {
-    await chrome.storage.local.set({
-      authToken: "demo-token-123",
-      isPro: false,
-      userEmail: "test@test.com"
-    })
-    document.getElementById("btnShowAuth").style.display = "none"
-    const btnSignOut = document.getElementById("btnSignOut")
-    btnSignOut.style.display = "flex"
-    btnSignOut.title = "Sign Out (test@test.com)"
-    loginForm.reset()
-    showView("mainView")
-    return
-  }
-  
   const btn = loginForm.querySelector("button[type='submit']")
   const origText = btn.textContent
   btn.textContent = "Logging In..."
