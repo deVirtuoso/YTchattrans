@@ -3,6 +3,7 @@
   "name": "YT Chat Translator",
   "description": "Auto-translate YouTube comments and live chat.",
   "version": "1.0.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwbo0MnFiy5jGHUx78f92bHKjLR9VGSVJBWlGMSLoTe7N/ZS8/bHIJR9F6qqKUlHH4ZcJ1mmoodM4Nmy9xzqH4RyzH367WHE8G5mgwle9Je/L7zwUGw7zQDVKYU1cvZJK4vUcOQK5MFsMqJkofcM9TSRSt+y2gxyFdmCyJl7f67qOw/YC91RPhoTLffAR3PF/ZapvdyGBhmul+H0pKPsueuzEqGRWNQOVgEmSYWVhI57G2vsQTbZmz0z9zy2hWRFr9vYwd2kuxiyIfAjuYwpIjPvYi96m7KGsuKYnc6pfSY8+Cy17VARBcxiXxUK/x9eDbSKm/sh0jjDu/wABi6roFQIDAQAB",
   "icons": {
     "16": "icons/icon16.plasmo.6c567d50.png",
     "32": "icons/icon32.plasmo.76b92899.png",
@@ -24,7 +25,7 @@
   },
   "permissions": ["storage", "identity"],
   "oauth2": {
-    "client_id": "274735878976-k5eard43v0eu1l68ffobp8dr44g0ofr9.apps.googleusercontent.com",
+    "client_id": "488192202806-iqn1jk4jdnne8knegmkq7fio2nfjb71m.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile"
