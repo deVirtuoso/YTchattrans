@@ -406,10 +406,26 @@ loginForm.addEventListener("submit", async (e) => {
 
 // Google Sign-In
 document.querySelector(".btn-google").addEventListener("click", () => {
-  chrome.identity.getAuthToken({ interactive: true }, async (token) => {
-    if (chrome.runtime.lastError || !token) {
+  const CLIENT_ID = "488192202806-19athdfac58v2u4ekpisn6eq9101berh.apps.googleusercontent.com";
+  const redirectUri = `https://${chrome.runtime.id}.chromiumapp.org/`;
+  const scope = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
+  const authUrl =
+    `https://accounts.google.com/o/oauth2/auth` +
+    `?client_id=${encodeURIComponent(CLIENT_ID)}` +
+    `&response_type=token` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&scope=${encodeURIComponent(scope)}`;
+
+  chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (redirectUrl) => {
+    if (chrome.runtime.lastError || !redirectUrl) {
       const errMsg = chrome.runtime.lastError ? chrome.runtime.lastError.message : "Cancelled";
       displayAuthMsg("error", `Google Sign-In failed: ${errMsg}`);
+      return;
+    }
+
+    const token = new URLSearchParams(new URL(redirectUrl).hash.slice(1)).get("access_token");
+    if (!token) {
+      displayAuthMsg("error", "Google Sign-In failed: No token received.");
       return;
     }
 
@@ -435,18 +451,17 @@ document.querySelector(".btn-google").addEventListener("click", () => {
           userEmail: data.user.email
         });
         displayAuthMsg("success", "Welcome back!");
-        
+
         document.getElementById("btnShowAuth").style.display = "none";
         const btnSignOut = document.getElementById("btnSignOut");
         btnSignOut.style.display = "flex";
         btnSignOut.title = `Sign Out (${data.user.email})`;
-        
+
         loginForm.reset();
         signupForm.reset();
         showView("mainView");
       } else {
         displayAuthMsg("error", data.error || "Google authentication failed.");
-        chrome.identity.removeCachedAuthToken({ token }, () => {});
       }
     } catch (err) {
       displayAuthMsg("error", "Network error. Please make sure the backend server is running.");
